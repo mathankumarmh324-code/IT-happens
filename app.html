@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Candidate Matcher & Resume Parser</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased">
+
+    <!-- Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">MatchAI Engine</h1>
+                    <p class="text-xs text-slate-400">Automated Resume Parser & Candidate Scoring</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 text-xs font-mono text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>API Status: Online</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        
+        <!-- Input Form Section -->
+        <form id="parseForm" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Card 1: Resume Upload -->
+                <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="file-text" class="w-4 h-4 text-indigo-400"></i>
+                                Candidate Resume
+                            </label>
+                            <span class="text-xs text-slate-400">PDF, DOCX, TXT</span>
+                        </div>
+                        
+                        <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500/50 rounded-lg p-8 text-center bg-slate-900/40 transition-colors cursor-pointer group">
+                            <input type="file" id="resumeFile" accept=".pdf,.docx,.doc,.txt" class="hidden" required onchange="handleFileSelect(this)">
+                            <div class="flex flex-col items-center justify-center space-y-3">
+                                <div class="p-3 bg-slate-800 rounded-full text-slate-400 group-hover:text-indigo-400 group-hover:scale-110 transition-all">
+                                    <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                                </div>
+                                <div id="fileInfo" class="space-y-1">
+                                    <p class="text-sm font-medium text-slate-300">Click to upload or drag & drop</p>
+                                    <p class="text-xs text-slate-500">Maximum file size 10MB</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Job Description -->
+                <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <label for="jdText" class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                                <i data-lucide="briefcase" class="w-4 h-4 text-cyan-400"></i>
+                                Job Description
+                            </label>
+                            <span class="text-xs text-slate-400">Paste criteria below</span>
+                        </div>
+                        <textarea id="jdText" required placeholder="Paste the target Job Description, required skills, and qualification requirements..." class="w-full h-44 bg-slate-900/60 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none"></textarea>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submitBtn" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center space-x-2 border border-indigo-400/30">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+                <span>Analyze Profile & Evaluate Fit</span>
+            </button>
+        </form>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="hidden py-16 text-center space-y-4">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
+            <p class="text-slate-400 text-sm animate-pulse">Extracting grounded fields and evaluating candidate match...</p>
+        </div>
+
+        <!-- Results Output Dashboard -->
+        <section id="resultsArea" class="hidden space-y-6 mt-10">
+            
+            <!-- Summary Header Banner -->
+            <div class="bg-gradient-to-r from-slate-800 to-indigo-950/40 border border-slate-700/80 rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-400"></i>
+                        Analysis Completed
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Grounded extraction & job qualification assessment summary</p>
+                </div>
+                <button onclick="downloadJSON()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold rounded-lg transition-all flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export JSON
+                </button>
+            </div>
+
+            <!-- Tab Navigation Header -->
+            <div class="flex border-b border-slate-800 space-x-6 text-sm font-medium">
+                <button onclick="switchTab('profileTab', this)" class="tab-btn pb-3 border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2">
+                    <i data-lucide="user-check" class="w-4 h-4"></i> 10 Profile Fields
+                </button>
+                <button onclick="switchTab('fitTab', this)" class="tab-btn pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Candidate Fit Report
+                </button>
+                <button onclick="switchTab('jsonTab', this)" class="tab-btn pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="code" class="w-4 h-4"></i> Raw JSON Output
+                </button>
+            </div>
+
+            <!-- Tab Content 1: Grounded Profile Fields -->
+            <div id="profileTab" class="tab-content">
+                <div class="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+                            <thead class="bg-slate-800/90 text-slate-400 uppercase text-[11px] font-semibold tracking-wider border-b border-slate-700">
+                                <tr>
+                                    <th class="py-3.5 px-4">Category</th>
+                                    <th class="py-3.5 px-4">Status</th>
+                                    <th class="py-3.5 px-4">Extracted Value</th>
+                                    <th class="py-3.5 px-4">Source Section</th>
+                                    <th class="py-3.5 px-4">Traceable Evidence</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profileTableBody" class="divide-y divide-slate-800/80"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content 2: Fit Analysis -->
+            <div id="fitTab" class="tab-content hidden">
+                <div class="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+                            <thead class="bg-slate-800/90 text-slate-400 uppercase text-[11px] font-semibold tracking-wider border-b border-slate-700">
+                                <tr>
+                                    <th class="py-3.5 px-4">Requirement</th>
+                                    <th class="py-3.5 px-4">Match Status</th>
+                                    <th class="py-3.5 px-4">Explanation</th>
+                                    <th class="py-3.5 px-4">Evidence Reference</th>
+                                    <th class="py-3.5 px-4">Confidence</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fitTableBody" class="divide-y divide-slate-800/80"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content 3: Raw JSON Deliverable -->
+            <div id="jsonTab" class="tab-content hidden">
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-x-auto">
+                    <pre><code id="jsonDisplay" class="text-xs font-mono text-emerald-400"></code></pre>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/60 py-6 text-center text-xs text-slate-500">
+        <p>MatchAI Engine &bull; Automated Candidate Parsing & Fit Assessment</p>
+    </footer>
+
+    <!-- Script Execution -->
+    <script>
+        lucide.createIcons();
+        let currentData = null;
+
+        // Drag & Drop Setup
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('resumeFile');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-indigo-500');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(fileInput);
+            }
+        });
+
+        function handleFileSelect(input) {
+            const fileInfo = document.getElementById('fileInfo');
+            if (input.files && input.files[0]) {
+                fileInfo.innerHTML = `
+                    <p class="text-sm font-semibold text-indigo-400">${input.files[0].name}</p>
+                    <p class="text-xs text-slate-400">${(input.files[0].size / 1024).toFixed(1)} KB</p>
+                `;
+            }
+        }
+
+        // Form Submit
+        document.getElementById('parseForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const jdText = document.getElementById('jdText').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const resultsArea = document.getElementById('resultsArea');
+
+            if (!fileInput.files[0] || !jdText.trim()) {
+                alert("Please provide both a resume file and job description text.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("jd_text", jdText);
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50');
+            loadingSpinner.classList.remove('hidden');
+            resultsArea.classList.add('hidden');
+
+            try {
+                C:/Users/user/AppData/Local/Programs/Python/Python313/python.exe app.py                const response = await fetch("/api/parse", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+
+                currentData = await response.json();
+                renderResults(currentData);
+            } catch (err) {
+                alert("Failed to connect to backend server: " + err.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50');
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        function renderResults(data) {
+            const profileBody = document.getElementById('profileTableBody');
+            const fitBody = document.getElementById('fitTableBody');
+            const jsonDisplay = document.getElementById('jsonDisplay');
+
+            // Render Profile Table
+            profileBody.innerHTML = data.profile.map(f => {
+                const badgeClass = f.status === 'FOUND' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : (f.status === 'AMBIGUOUS' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20');
+                return `
+                    <tr class="hover:bg-slate-800/30 transition-colors">
+                        <td class="py-3 px-4 font-semibold text-slate-200">${f.category}</td>
+                        <td class="py-3 px-4"><span class="inline-block px-2.5 py-0.5 border text-[11px] font-bold rounded-full ${badgeClass}">${f.status}</span></td>
+                        <td class="py-3 px-4 text-slate-300">${f.value}</td>
+                        <td class="py-3 px-4 font-mono text-xs text-indigo-300">${f.source_section}</td>
+                        <td class="py-3 px-4 font-mono text-xs text-slate-400 max-w-xs truncate" title="${f.evidence}">${f.evidence}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Render Fit Report Table
+            fitBody.innerHTML = data.fit_report.map(r => {
+                const matchClass = r.match_status === 'MATCHED' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                return `
+                    <tr class="hover:bg-slate-800/30 transition-colors">
+                        <td class="py-3 px-4 font-semibold text-slate-200">${r.requirement}</td>
+                        <td class="py-3 px-4"><span class="inline-block px-2.5 py-0.5 border text-[11px] font-bold rounded-full ${matchClass}">${r.match_status}</span></td>
+                        <td class="py-3 px-4 text-slate-300">${r.explanation}</td>
+                        <td class="py-3 px-4 font-mono text-xs text-indigo-300">${r.evidence_ref}</td>
+                        <td class="py-3 px-4 uppercase text-xs font-semibold text-slate-400">${r.confidence}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            jsonDisplay.textContent = JSON.stringify(data, null, 2);
+            document.getElementById('resultsArea').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Tab Navigation Logic
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('border-indigo-500', 'text-indigo-400');
+                b.classList.add('border-transparent', 'text-slate-400');
+            });
+
+            btn.classList.remove('border-transparent', 'text-slate-400');
+            btn.classList.add('border-indigo-500', 'text-indigo-400');
+        }
+
+        // JSON Export Function
+        function downloadJSON() {
+            if (!currentData) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "profile.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+    </script>
+</body>
+</html>
